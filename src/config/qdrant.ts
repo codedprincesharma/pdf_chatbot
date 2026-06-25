@@ -6,4 +6,3 @@ export const qdrantClient = new QdrantClient({
   apiKey: config.QDRANT_API_KEY,
 });
 
-

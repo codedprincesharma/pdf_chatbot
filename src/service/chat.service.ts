@@ -1,19 +1,106 @@
+import { pdfs, conversations, IConversation } from "../database/memoryDb";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import * as vectorService from "./vector.service";
+import config from "../config/config";
+
+const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
 export const askQuestion = async (
   question: string,
   pdfId: string
 ) => {
+  try {
+    // 1. Validate inputs
+    if (!question || !pdfId) {
+      throw new Error("Question and PDF ID are required");
+    }
 
-  // 1. Get vector collection
+    // 2. Get PDF and vector collection info
+    const pdf = pdfs.find((p) => p.id === pdfId);
+    if (!pdf) {
+      throw new Error("PDF not found");
+    }
 
-  // 2. Similarity Search
+    const collectionName = pdf.vectorCollectionId;
 
-  // 3. Retrieve chunks
+    // 3. Search for similar chunks in vector database
+    const similarChunks = await vectorService.searchSimilarChunks(
+      collectionName,
+      question,
+      5 // top 5 most similar chunks
+    );
 
-  // 4. Build Prompt
+    if (similarChunks.length === 0) {
+      throw new Error("No relevant content found in PDF");
+    }
 
-  // 5. Gemini/OpenAI Call
+    console.log(`Found ${similarChunks.length} relevant chunks`);
 
-  // 6. Return answer
+    // 4. Build context from retrieved chunks
+    const context = similarChunks
+      .map((chunk, index) => `[Chunk ${index + 1}]\n${chunk.text}`)
+      .join("\n\n---\n\n");
 
+    // 5. Build RAG prompt
+    const ragPrompt = `You are a helpful assistant answering questions about a PDF document.
+
+Context from the PDF:
+${context}
+
+User Question: ${question}
+
+Based on the context provided above, please answer the question. If the answer is not found in the context, say "I couldn't find this information in the provided PDF."
+
+Answer:`;
+
+    // 6. Call Gemini API
+    const response = await model.generateContent(ragPrompt);
+    const answer = response.response.text();
+
+    // 7. Save conversation to Memory DB
+    let conversation = conversations.find((c) => c.pdfId === pdfId);
+
+    if (!conversation) {
+      conversation = {
+        pdfId,
+        messages: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      conversations.push(conversation);
+    }
+
+    conversation.messages.push(
+      { role: "user", content: question },
+      { role: "assistant", content: answer }
+    );
+
+    conversation.updatedAt = new Date();
+    console.log("Conversation saved");
+
+    return {
+      answer,
+      sources: similarChunks.length,
+      pdfId,
+      question,
+    };
+  } catch (error) {
+    console.error("Error in askQuestion:", error);
+    throw error;
+  }
+};
+
+export const getConversationHistory = async (pdfId: string) => {
+  try {
+    const conversation = conversations.find((c) => c.pdfId === pdfId);
+    if (!conversation) {
+      return { messages: [], pdfId };
+    }
+    return conversation;
+  } catch (error) {
+    console.error("Error fetching conversation:", error);
+    throw error;
+  }
 };
 

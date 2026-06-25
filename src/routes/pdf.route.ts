@@ -1,6 +1,6 @@
 import express from "express";
-import {upload} from "../middleware/multer";
-import { uploadPdf } from "../controller/pdf.controller";
+import { upload } from "../middleware/multer";
+import { uploadPdf, getPdfs } from "../controller/pdf.controller";
 
 
 const router = express.Router();
@@ -11,5 +11,9 @@ router.post(
   uploadPdf
 );
 
-export default router;
+router.get(
+  "/list",
+  getPdfs
+);
 
+export default router;

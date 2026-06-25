@@ -5,6 +5,7 @@
     "start": "server.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.11.0",
     "@langchain/google-genai": "^2.2.0",
     "@qdrant/js-client-rest": "^1.18.0",
     "cookie-parser": "^1.4.7",
@@ -14,7 +15,8 @@
     "langchain": "^1.5.1",
     "mongoose": "^9.7.1",
     "multer": "^2.2.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
@@ -22,6 +24,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
     "@types/node": "^26.0.0",
+    "@types/uuid": "^9.0.7",
     "ts-node-dev": "^2.0.0",
     "typescript": "^6.0.3"
   }
