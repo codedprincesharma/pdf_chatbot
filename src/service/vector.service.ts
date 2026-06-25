@@ -111,7 +111,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const embeddings = new GoogleGenerativeAIEmbeddings({
   apiKey: config.GEMINI_API_KEY,
-  modelName: "text-embedding-004",
+  modelName: config.EMBEDDING_MODEL,
 });
 
 const BATCH_SIZE = 50;
@@ -193,7 +193,7 @@ export const similaritySearch = async (
   collectionName: string,
   query: string,
   limit: number = 5
-) => {
+): Promise<{ text: string; score: number }[]> => {
   const queryEmbedding =
     await generateEmbedding(query);
 
@@ -205,7 +205,7 @@ export const similaritySearch = async (
     });
 
   return result.map((item) => ({
-    text: item.payload?.text,
+    text: (item.payload?.text as string) || "",
     score: item.score,
   }));
 };

@@ -10,8 +10,9 @@ const config = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   CHUNK_SIZE: 1000,
   CHUNK_OVERLAP: 200,
-  EMBEDDING_MODEL: "models/embedding-001",
-  EMBEDDING_DIMENSION: 768,
+  EMBEDDING_MODEL: "models/gemini-embedding-001",
+  EMBEDDING_DIMENSION: 3072,
+  GEMINI_MODEL: "gemini-2.5-flash",
 };
 
 export default config;

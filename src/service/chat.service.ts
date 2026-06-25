@@ -4,7 +4,7 @@ import * as vectorService from "./vector.service";
 import config from "../config/config";
 
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: config.GEMINI_MODEL });
 
 export const askQuestion = async (
   question: string,
@@ -25,7 +25,7 @@ export const askQuestion = async (
     const collectionName = pdf.vectorCollectionId;
 
     // 3. Search for similar chunks in vector database
-    const similarChunks = await vectorService.searchSimilarChunks(
+    const similarChunks = await vectorService.similaritySearch(
       collectionName,
       question,
       5 // top 5 most similar chunks

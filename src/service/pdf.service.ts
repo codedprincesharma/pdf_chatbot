@@ -68,6 +68,8 @@ const chunkText = (
   const chunks: string[] = [];
   let start = 0;
 
+  if (chunkSize <= 0) return [];
+  const actualOverlap = Math.min(overlap, chunkSize - 1);
 
   while (start < text.length) {
     const end = Math.min(start + chunkSize, text.length);
@@ -77,7 +79,11 @@ const chunkText = (
       chunks.push(chunk);
     }
 
-    start = end - overlap;
+    if (end >= text.length) {
+      break;
+    }
+
+    start = end - actualOverlap;
   }
 
   console.log(chunks.length);
