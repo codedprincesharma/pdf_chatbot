@@ -25,6 +25,9 @@ const sendBtn = document.getElementById('send-btn');
 const toastContainer = document.getElementById('toast-container');
 const suggestionsContainer = document.getElementById('suggestions-container');
 const appContainer = document.getElementById('app-container');
+const sidebar = document.getElementById('sidebar');
+const sidebarResizer = document.getElementById('sidebar-resizer');
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
 
 // Auth DOM Elements
 const authOverlay = document.getElementById('auth-overlay');
@@ -285,7 +288,87 @@ function setupEventListeners() {
       chatInput.focus();
     }
   });
+
+  // Resizable Sidebar & Theme Toggle
+  setupSidebarResizer();
+  setupThemeToggle();
 }
+
+// Sidebar Drag-to-Resize Logic
+function setupSidebarResizer() {
+  // Load saved sidebar width from localStorage
+  const savedWidth = localStorage.getItem('sidebarWidth');
+  if (savedWidth) {
+    sidebar.style.width = savedWidth + 'px';
+    sidebar.style.minWidth = savedWidth + 'px';
+  }
+
+  sidebarResizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    document.body.classList.add('resizing');
+
+    const startX = e.clientX;
+    const startWidth = sidebar.getBoundingClientRect().width;
+
+    function handleMouseMove(moveEvent) {
+      const currentX = moveEvent.clientX;
+      const deltaX = currentX - startX;
+      let newWidth = startWidth + deltaX;
+
+      // Impose boundaries: min 240px, max 480px
+      if (newWidth < 240) {
+        newWidth = 240;
+      } else if (newWidth > 480) {
+        newWidth = 480;
+      }
+
+      sidebar.style.width = newWidth + 'px';
+      sidebar.style.minWidth = newWidth + 'px';
+    }
+
+    function handleMouseUp() {
+      document.body.classList.remove('resizing');
+      const finalWidth = sidebar.getBoundingClientRect().width;
+      localStorage.setItem('sidebarWidth', finalWidth);
+      
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    }
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  });
+}
+
+// Light/Dark Theme Toggle Logic
+function setupThemeToggle() {
+  const sunIcon = themeToggleBtn.querySelector('.sun-icon');
+  const moonIcon = themeToggleBtn.querySelector('.moon-icon');
+
+  // Load saved theme or default to dark
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  setTheme(savedTheme);
+
+  themeToggleBtn.addEventListener('click', () => {
+    const isLight = document.body.classList.contains('light-theme');
+    const newTheme = isLight ? 'dark' : 'light';
+    setTheme(newTheme);
+  });
+
+  function setTheme(theme) {
+    if (theme === 'light') {
+      document.body.classList.add('light-theme');
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'block';
+    } else {
+      document.body.classList.remove('light-theme');
+      sunIcon.style.display = 'block';
+      moonIcon.style.display = 'none';
+    }
+    localStorage.setItem('theme', theme);
+  }
+}
+
 
 // Fetch list of uploaded PDFs from backend
 async function fetchPdfs() {

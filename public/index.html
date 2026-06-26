@@ -23,11 +23,17 @@
 <body>
   <div class="app-container" id="app-container" style="display: none;">
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <div class="logo">
-          <i data-lucide="brain-circuit" class="logo-icon"></i>
-          <span>DocuMind <span class="accent-text">AI</span></span>
+        <div class="logo-row">
+          <div class="logo">
+            <i data-lucide="brain-circuit" class="logo-icon"></i>
+            <span>DocuMind <span class="accent-text">AI</span></span>
+          </div>
+          <button class="theme-toggle-btn" id="theme-toggle-btn" title="Toggle theme">
+            <i data-lucide="sun" class="sun-icon"></i>
+            <i data-lucide="moon" class="moon-icon" style="display: none;"></i>
+          </button>
         </div>
       </div>
       
@@ -79,6 +85,8 @@
         </div>
       </div>
     </aside>
+    <!-- Resize Handle -->
+    <div class="sidebar-resizer" id="sidebar-resizer"></div>
     
     <!-- Main Chat Container -->
     <main class="chat-container">
