@@ -1,0 +1,38 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Pdf {
+  id                 String         @id @default(uuid())
+  fileName           String
+  originalName       String
+  vectorCollectionId String
+  textLength         Int
+  chunkCount         Int
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  conversations      Conversation[]
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  pdfId     String
+  pdf       Pdf       @relation(fields: [pdfId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // "user" | "assistant"
+  content        String
+  createdAt      DateTime     @default(now())
+}

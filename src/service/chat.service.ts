@@ -1,4 +1,4 @@
-import { pdfs, conversations, IConversation } from "../database/memoryDb";
+import prisma from "../database/db";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as vectorService from "./vector.service";
 import config from "../config/config";
@@ -17,7 +17,9 @@ export const askQuestion = async (
     }
 
     // 2. Get PDF and vector collection info
-    const pdf = pdfs.find((p) => p.id === pdfId);
+    const pdf = await prisma.pdf.findUnique({
+      where: { id: pdfId },
+    });
     if (!pdf) {
       throw new Error("PDF not found");
     }
@@ -58,25 +60,31 @@ Answer:`;
     const response = await model.generateContent(ragPrompt);
     const answer = response.response.text();
 
-    // 7. Save conversation to Memory DB
-    let conversation = conversations.find((c) => c.pdfId === pdfId);
+    // 7. Save conversation to Database
+    let conversation = await prisma.conversation.findFirst({
+      where: { pdfId },
+    });
 
     if (!conversation) {
-      conversation = {
-        pdfId,
-        messages: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      conversations.push(conversation);
+      conversation = await prisma.conversation.create({
+        data: {
+          pdfId,
+        },
+      });
     }
 
-    conversation.messages.push(
-      { role: "user", content: question },
-      { role: "assistant", content: answer }
-    );
+    await prisma.message.createMany({
+      data: [
+        { conversationId: conversation.id, role: "user", content: question },
+        { conversationId: conversation.id, role: "assistant", content: answer },
+      ],
+    });
 
-    conversation.updatedAt = new Date();
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { updatedAt: new Date() },
+    });
+
     console.log("Conversation saved");
 
     return {
@@ -93,7 +101,16 @@ Answer:`;
 
 export const getConversationHistory = async (pdfId: string) => {
   try {
-    const conversation = conversations.find((c) => c.pdfId === pdfId);
+    const conversation = await prisma.conversation.findFirst({
+      where: { pdfId },
+      include: {
+        messages: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+      },
+    });
     if (!conversation) {
       return { messages: [], pdfId };
     }

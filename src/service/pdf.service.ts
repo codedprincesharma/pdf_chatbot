@@ -1,8 +1,7 @@
-import { pdfs, IPdf } from "../database/memoryDb";
+import prisma from "../database/db";
 import * as vectorService from "./vector.service";
 import config from "../config/config";
 import { PDFParse } from "pdf-parse";
-import { v4 as uuidv4 } from "uuid";
 
 export const uploadPdf = async (file: Express.Multer.File) => {
   try {
@@ -32,19 +31,16 @@ export const uploadPdf = async (file: Express.Multer.File) => {
     const chunkIds = await vectorService.storeVectors(collectionName, chunks);
     console.log(`Stored ${chunkIds.length} chunk embeddings`);
 
-    // 6. Save Metadata to Memory DB
-    const pdfId = uuidv4();
-    const pdf: IPdf = {
-      id: pdfId,
-      fileName: file.filename || `pdf_${Date.now()}`,
-      originalName: file.originalname,
-      vectorCollectionId: collectionName,
-      textLength: fullText.length,
-      chunkCount: chunks.length,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    pdfs.push(pdf);
+    // 6. Save Metadata to Database
+    const pdf = await prisma.pdf.create({
+      data: {
+        fileName: file.filename || `pdf_${Date.now()}`,
+        originalName: file.originalname,
+        vectorCollectionId: collectionName,
+        textLength: fullText.length,
+        chunkCount: chunks.length,
+      },
+    });
 
     return {
       id: pdf.id,
@@ -90,3 +86,15 @@ const chunkText = (
   return chunks;
 };
 
+export const getPdfs = async () => {
+  try {
+    return await prisma.pdf.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  } catch (error) {
+    console.error("Error in getPdfs service:", error);
+    throw error;
+  }
+};
