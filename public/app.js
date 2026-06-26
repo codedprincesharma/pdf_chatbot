@@ -24,11 +24,208 @@ const chatInput = document.getElementById('chat-input');
 const sendBtn = document.getElementById('send-btn');
 const toastContainer = document.getElementById('toast-container');
 const suggestionsContainer = document.getElementById('suggestions-container');
+const appContainer = document.getElementById('app-container');
+
+// Auth DOM Elements
+const authOverlay = document.getElementById('auth-overlay');
+const authForm = document.getElementById('auth-form');
+const authEmail = document.getElementById('auth-email');
+const authPassword = document.getElementById('auth-password');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
+const authSubtitle = document.getElementById('auth-subtitle');
+const authToggleBtn = document.getElementById('auth-toggle-btn');
+const authToggleText = document.getElementById('auth-toggle-text');
+const userProfileSection = document.getElementById('user-profile-section');
+const userEmailSpan = document.getElementById('user-email');
+const logoutBtn = document.getElementById('logout-btn');
+
+// Auth State Variables
+let accessToken = null;
+let isSignUpMode = false;
+
+// Wrap native fetch to include bearer token and handle token expiration/rotation
+async function authFetch(url, options = {}) {
+  options.headers = options.headers || {};
+  if (accessToken) {
+    options.headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  options.credentials = 'include'; // Send cookies (like refreshToken)
+  
+  try {
+    let response = await fetch(url, options);
+    
+    // If access token is expired (401), attempt to refresh it
+    if (response.status === 401 && accessToken) {
+      console.log('Access token expired, attempting refresh...');
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        options.headers['Authorization'] = `Bearer ${accessToken}`;
+        response = await fetch(url, options);
+      } else {
+        // Session expired, show login modal
+        showAuthModal(true);
+        throw new Error('Session expired. Please log in again.');
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('Fetch error:', error);
+    throw error;
+  }
+}
+
+// Refresh access token using HttpOnly cookie refresh token
+async function refreshToken() {
+  try {
+    const response = await fetch(API_URL + '/auth/refresh', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const result = await response.json();
+    if (result.success && result.data && result.data.accessToken) {
+      accessToken = result.data.accessToken;
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return false;
+  }
+}
+
+// Check if user is logged in on load
+async function checkAuthState() {
+  const refreshed = await refreshToken();
+  if (refreshed) {
+    const email = localStorage.getItem('userEmail') || 'User';
+    onLoginSuccess(email);
+  } else {
+    showAuthModal(true);
+  }
+}
+
+function showAuthModal(show) {
+  authOverlay.style.display = show ? 'flex' : 'none';
+  if (show) {
+    authEmail.value = '';
+    authPassword.value = '';
+    authEmail.focus();
+  }
+}
+
+function toggleAuthMode() {
+  isSignUpMode = !isSignUpMode;
+  authSubtitle.textContent = isSignUpMode ? 'Create your DocuMind account' : 'Login to chat with your documents';
+  authSubmitBtn.querySelector('span').textContent = isSignUpMode ? 'Sign Up' : 'Log In';
+  authToggleText.textContent = isSignUpMode ? 'Already have an account?' : "Don't have an account?";
+  authToggleBtn.textContent = isSignUpMode ? 'Log In' : 'Sign Up';
+}
+
+async function handleAuthSubmit(e) {
+  if (e) e.preventDefault();
+  const email = authEmail.value.trim();
+  const password = authPassword.value;
+  
+  if (!email || !password) return;
+  
+  const endpoint = isSignUpMode ? '/auth/signup' : '/auth/login';
+  
+  try {
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.querySelector('span').textContent = isSignUpMode ? 'Signing up...' : 'Logging in...';
+    
+    const response = await fetch(API_URL + endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include'
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      if (isSignUpMode) {
+        showToast('Success', 'Account created successfully! Logging in...', 'success');
+        // Auto-login after signup
+        isSignUpMode = false;
+        authPassword.value = password; // Preserve password for login attempt
+        await handleAuthSubmit();
+      } else {
+        accessToken = result.data.accessToken;
+        localStorage.setItem('userEmail', result.data.user.email);
+        onLoginSuccess(result.data.user.email);
+        showToast('Success', 'Logged in successfully!', 'success');
+      }
+    } else {
+      showToast('Authentication Failed', result.message || 'Operation failed', 'error');
+    }
+  } catch (error) {
+    console.error('Auth error:', error);
+    showToast('Error', 'Connection to authentication server failed', 'error');
+  } finally {
+    authSubmitBtn.disabled = false;
+    authSubmitBtn.querySelector('span').textContent = isSignUpMode ? 'Sign Up' : 'Log In';
+  }
+}
+
+function onLoginSuccess(email) {
+  showAuthModal(false);
+  appContainer.style.display = 'flex';
+  
+  // Show user profile in sidebar
+  userProfileSection.style.display = 'flex';
+  userEmailSpan.textContent = email;
+  userEmailSpan.setAttribute('title', email);
+  
+  // Load library
+  fetchPdfs();
+}
+
+async function handleLogout() {
+  try {
+    await fetch(API_URL + '/auth/logout', {
+      method: 'POST',
+      headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+      credentials: 'include'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    accessToken = null;
+    localStorage.removeItem('userEmail');
+    
+    // Hide main UI
+    appContainer.style.display = 'none';
+    
+    // Hide user profile
+    userProfileSection.style.display = 'none';
+    
+    // Clear state
+    activePdfId = null;
+    pdfsList = [];
+    docList.innerHTML = '';
+    welcomeView.style.display = 'flex';
+    chatView.style.display = 'none';
+    
+    showToast('Logged Out', 'You have been logged out.', 'info');
+    showAuthModal(true);
+  }
+}
+
+function setupAuthEventListeners() {
+  authForm.addEventListener('submit', handleAuthSubmit);
+  authToggleBtn.addEventListener('click', toggleAuthMode);
+  logoutBtn.addEventListener('click', handleLogout);
+}
 
 // Initialize App
-document.addEventListener('DOMContentLoaded', () => {
-  fetchPdfs();
+document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
+  setupAuthEventListeners();
+  await checkAuthState();
 });
 
 // Setup Event Listeners
@@ -93,7 +290,7 @@ function setupEventListeners() {
 // Fetch list of uploaded PDFs from backend
 async function fetchPdfs() {
   try {
-    const response = await fetch(API_URL + '/pdf/list');
+    const response = await authFetch(API_URL + '/pdf/list');
     const result = await response.json();
     
     if (result.success) {
@@ -182,7 +379,7 @@ async function fetchHistory(pdfId) {
   appendSystemMessage('Connected. Ask me anything about this document!');
 
   try {
-    const response = await fetch(API_URL + `/chat/history/${pdfId}`);
+    const response = await authFetch(API_URL + `/chat/history/${pdfId}`);
     const result = await response.json();
     
     if (result.success && result.data && result.data.messages) {
@@ -233,7 +430,19 @@ function handleFileUpload(file) {
   });
 
   // Track completion
-  xhr.addEventListener('load', () => {
+  xhr.addEventListener('load', async () => {
+    if (xhr.status === 401) {
+      console.log('Access token expired during upload, attempting refresh...');
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        handleFileUpload(file);
+      } else {
+        showAuthModal(true);
+        showToast('Session Expired', 'Please log in again to upload files', 'error');
+        uploadStatus.style.display = 'none';
+      }
+      return;
+    }
     if (xhr.status === 201) {
       try {
         const response = JSON.parse(xhr.responseText);
@@ -271,6 +480,10 @@ function handleFileUpload(file) {
   });
 
   xhr.open('POST', API_URL + '/pdf/upload');
+  if (accessToken) {
+    xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+  }
+  xhr.withCredentials = true;
   xhr.send(formData);
 }
 
@@ -292,7 +505,7 @@ async function handleQuestionSubmit() {
   scrollToBottom();
 
   try {
-    const response = await fetch(API_URL + '/chat', {
+    const response = await authFetch(API_URL + '/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

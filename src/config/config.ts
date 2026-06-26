@@ -13,6 +13,10 @@ const config = {
   EMBEDDING_MODEL: "models/gemini-embedding-001",
   EMBEDDING_DIMENSION: 3072,
   GEMINI_MODEL: "gemini-2.5-flash",
+  JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET || "default_access_secret_12345!",
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || "default_refresh_secret_12345!",
+  JWT_ACCESS_EXPIRY: process.env.JWT_ACCESS_EXPIRY || "15m",
+  JWT_REFRESH_EXPIRY: process.env.JWT_REFRESH_EXPIRY || "7d",
 };
 
 export default config;

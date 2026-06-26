@@ -8,7 +8,8 @@ const model = genAI.getGenerativeModel({ model: config.GEMINI_MODEL });
 
 export const askQuestion = async (
   question: string,
-  pdfId: string
+  pdfId: string,
+  userId: string
 ) => {
   try {
     // 1. Validate inputs
@@ -17,8 +18,8 @@ export const askQuestion = async (
     }
 
     // 2. Get PDF and vector collection info
-    const pdf = await prisma.pdf.findUnique({
-      where: { id: pdfId },
+    const pdf = await prisma.pdf.findFirst({
+      where: { id: pdfId, userId },
     });
     if (!pdf) {
       throw new Error("PDF not found");
@@ -62,13 +63,14 @@ Answer:`;
 
     // 7. Save conversation to Database
     let conversation = await prisma.conversation.findFirst({
-      where: { pdfId },
+      where: { pdfId, userId },
     });
 
     if (!conversation) {
       conversation = await prisma.conversation.create({
         data: {
           pdfId,
+          userId,
         },
       });
     }
@@ -99,10 +101,10 @@ Answer:`;
   }
 };
 
-export const getConversationHistory = async (pdfId: string) => {
+export const getConversationHistory = async (pdfId: string, userId: string) => {
   try {
     const conversation = await prisma.conversation.findFirst({
-      where: { pdfId },
+      where: { pdfId, userId },
       include: {
         messages: {
           orderBy: {

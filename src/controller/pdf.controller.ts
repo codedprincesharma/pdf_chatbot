@@ -1,11 +1,20 @@
-import { Request, Response } from "express";
+import { Response } from "express";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import * as pdfService from "../service/pdf.service";
 
 export const uploadPdf = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - User ID not found",
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -13,7 +22,7 @@ export const uploadPdf = async (
       });
     }
 
-    const result = await pdfService.uploadPdf(req.file);
+    const result = await pdfService.uploadPdf(req.file, userId);
 
     res.status(201).json({
       success: true,
@@ -28,9 +37,17 @@ export const uploadPdf = async (
   }
 };
 
-export const getPdfs = async (req: Request, res: Response) => {
+export const getPdfs = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const list = await pdfService.getPdfs();
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - User ID not found",
+      });
+    }
+
+    const list = await pdfService.getPdfs(userId);
     res.status(200).json({
       success: true,
       data: list.map(pdf => ({

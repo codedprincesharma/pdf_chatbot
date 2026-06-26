@@ -3,7 +3,7 @@ import * as vectorService from "./vector.service";
 import config from "../config/config";
 import { PDFParse } from "pdf-parse";
 
-export const uploadPdf = async (file: Express.Multer.File) => {
+export const uploadPdf = async (file: Express.Multer.File, userId: string) => {
   try {
     // 1. Extract Text from PDF
     const parser = new PDFParse({ data: file.buffer });
@@ -34,6 +34,7 @@ export const uploadPdf = async (file: Express.Multer.File) => {
     // 6. Save Metadata to Database
     const pdf = await prisma.pdf.create({
       data: {
+        userId,
         fileName: file.filename || `pdf_${Date.now()}`,
         originalName: file.originalname,
         vectorCollectionId: collectionName,
@@ -86,9 +87,10 @@ const chunkText = (
   return chunks;
 };
 
-export const getPdfs = async () => {
+export const getPdfs = async (userId: string) => {
   try {
     return await prisma.pdf.findMany({
+      where: { userId },
       orderBy: {
         createdAt: "desc",
       },

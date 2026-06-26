@@ -7,8 +7,21 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  refreshToken  String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  pdfs          Pdf[]
+  conversations Conversation[]
+}
+
 model Pdf {
   id                 String         @id @default(uuid())
+  userId             String
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   fileName           String
   originalName       String
   vectorCollectionId String
@@ -21,6 +34,8 @@ model Pdf {
 
 model Conversation {
   id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   pdfId     String
   pdf       Pdf       @relation(fields: [pdfId], references: [id], onDelete: Cascade)
   messages  Message[]

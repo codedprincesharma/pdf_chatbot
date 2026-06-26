@@ -1,11 +1,20 @@
-import { Request, Response } from "express";
+import { Response } from "express";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import * as chatService from "../service/chat.service";
 
 export const askQuestion = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - User ID not found",
+      });
+    }
+
     const { question, pdfId } = req.body;
 
     if (!question || !pdfId) {
@@ -15,7 +24,7 @@ export const askQuestion = async (
       });
     }
 
-    const answer = await chatService.askQuestion(question, pdfId);
+    const answer = await chatService.askQuestion(question, pdfId, userId);
 
     res.status(200).json({
       success: true,
@@ -31,10 +40,18 @@ export const askQuestion = async (
 };
 
 export const getHistory = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ) => {
   try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - User ID not found",
+      });
+    }
+
     const pdfId = req.params.pdfId as string;
 
     if (!pdfId) {
@@ -44,7 +61,7 @@ export const getHistory = async (
       });
     }
 
-    const history = await chatService.getConversationHistory(pdfId);
+    const history = await chatService.getConversationHistory(pdfId, userId);
 
     res.status(200).json({
       success: true,
