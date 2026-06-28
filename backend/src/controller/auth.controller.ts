@@ -22,10 +22,14 @@ export const signup = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("Signup error:", error);
-    res.status(400).json({
+    console.error("Signup error details:", error);
+    const isDbError = error.message?.toLowerCase().includes("database") || 
+                      error.message?.toLowerCase().includes("prisma") || 
+                      error.code;
+    res.status(isDbError ? 500 : 400).json({
       success: false,
       message: error.message || "Signup failed",
+      errorDetails: isDbError ? error.message : undefined
     });
   }
 };
@@ -51,10 +55,14 @@ export const login = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("Login error:", error);
-    res.status(401).json({
+    console.error("Login error details:", error);
+    const isDbError = error.message?.toLowerCase().includes("database") || 
+                      error.message?.toLowerCase().includes("prisma") || 
+                      error.code;
+    res.status(isDbError ? 500 : 401).json({
       success: false,
       message: error.message || "Invalid email or name",
+      errorDetails: isDbError ? error.message : undefined
     });
   }
 };
