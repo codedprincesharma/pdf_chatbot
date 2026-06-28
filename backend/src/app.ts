@@ -19,6 +19,11 @@ app.use(cors({
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, "../public")));
 
+// Suppress Chrome DevTools CSP warning
+app.get("/.well-known/appspecific/com.chrome.devtools.json", (_req, res) => {
+  res.json({});
+});
+
 app.use("/pdf", pdfRoutes);
 app.use("/chat", chatRoutes);
 app.use("/auth", authRoutes);

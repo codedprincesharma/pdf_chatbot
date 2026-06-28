@@ -45,45 +45,84 @@ export const askQuestion = async (
       .map((chunk, index) => `[Chunk ${index + 1}]\n${chunk.text}`)
       .join("\n\n---\n\n");
 
-    // 5. Build RAG prompt
-    const ragPrompt = `You are a helpful assistant answering questions about a PDF document.
+    // 5. Fetch conversation history for context-aware answers
+    const existingConversation = await prisma.conversation.findFirst({
+      where: { pdfId, userId },
+      include: {
+        messages: {
+          orderBy: { createdAt: "asc" },
+          take: 20, // Last 20 messages (10 Q&A pairs)
+        },
+      },
+    });
 
-Context from the PDF:
+    const chatHistory = existingConversation?.messages
+      ?.map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
+      .join("\n") || "No previous conversation.";
+
+    // 6. Build RAG prompt with conversation history
+    const ragPrompt = `You are an AI assistant that answers questions using both the conversation history and the retrieved document context.
+
+Instructions:
+
+1. Always understand the user's current question in the context of the previous conversation.
+
+2. Use the conversation history to answer questions about previous messages, follow-up questions, references like "this", "that", "it", "previous answer", "last question", etc.
+
+3. Use the retrieved document context only for answering questions related to the uploaded documents.
+
+4. If the user's question requires both conversation history and document context, combine both intelligently.
+
+5. Never invent information that is not present in the conversation history or retrieved context.
+
+6. If the answer cannot be found in either the conversation history or the retrieved context, clearly say:
+"I couldn't find that information in the available conversation history or uploaded documents."
+
+7. Give concise, accurate, and well-structured answers.
+
+----------------------------------------
+Conversation History:
+${chatHistory}
+
+----------------------------------------
+Retrieved Context:
 ${context}
 
-User Question: ${question}
+----------------------------------------
+Current User Question:
+${question}
 
-Based on the context provided above, please answer the question. If the answer is not found in the context, say "I couldn't find this information in the provided PDF."
+----------------------------------------
+Generate the best possible answer using the conversation history and the retrieved document context.`;
 
-Answer:`;
-
-    // 6. Call Gemini API
+    // 7. Call Gemini API
     const response = await model.generateContent(ragPrompt);
     const answer = response.response.text();
 
-    // 7. Save conversation to Database
-    let conversation = await prisma.conversation.findFirst({
-      where: { pdfId, userId },
-    });
+    // 8. Save conversation to Database
+    let conversationId: string;
 
-    if (!conversation) {
-      conversation = await prisma.conversation.create({
+    if (existingConversation) {
+      conversationId = existingConversation.id;
+    } else {
+      const newConversation = await prisma.conversation.create({
         data: {
           pdfId,
           userId,
         },
       });
+      conversationId = newConversation.id;
     }
 
     await prisma.message.createMany({
       data: [
-        { conversationId: conversation.id, role: "user", content: question },
-        { conversationId: conversation.id, role: "assistant", content: answer },
+        { conversationId, role: "user", content: question },
+        { conversationId, role: "assistant", content: answer },
       ],
     });
 
     await prisma.conversation.update({
-      where: { id: conversation.id },
+      where: { id: conversationId },
       data: { updatedAt: new Date() },
     });
 

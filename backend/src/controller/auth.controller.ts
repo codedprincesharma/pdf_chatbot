@@ -3,8 +3,17 @@ import * as authService from "../service/auth.service";
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-    const result = await authService.signup(email, password);
+    const { email, name } = req.body;
+    const result = await authService.signup(email, name);
+    
+    // Set user ID as refresh token in httpOnly cookie
+    res.cookie("refreshToken", result.refreshToken, {
+      httpOnly: true,
+      secure: false, // Set to true if running on HTTPS
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
     res.status(201).json({
       success: true,
       message: "User registered successfully",
@@ -21,15 +30,15 @@ export const signup = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-    const result = await authService.login(email, password);
+    const { email, name } = req.body;
+    const result = await authService.login(email, name);
 
-    // Set refresh token in httpOnly cookie
+    // Set user ID as refresh token in httpOnly cookie
     res.cookie("refreshToken", result.refreshToken, {
       httpOnly: true,
       secure: false, // Set to true if running on HTTPS
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     res.status(200).json({
@@ -44,7 +53,7 @@ export const login = async (req: Request, res: Response) => {
     console.error("Login error:", error);
     res.status(401).json({
       success: false,
-      message: error.message || "Invalid email or password",
+      message: error.message || "Invalid email or name",
     });
   }
 };
@@ -55,13 +64,12 @@ export const refresh = async (req: Request, res: Response) => {
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "No refresh token provided",
+        message: "No session active",
       });
     }
 
     const result = await authService.refresh(token);
 
-    // Set rotated refresh token in httpOnly cookie
     res.cookie("refreshToken", result.refreshToken, {
       httpOnly: true,
       secure: false,
@@ -79,43 +87,13 @@ export const refresh = async (req: Request, res: Response) => {
     console.error("Token refresh error:", error);
     res.status(401).json({
       success: false,
-      message: error.message || "Invalid refresh token",
+      message: error.message || "Session expired",
     });
   }
 };
 
 export const logout = async (req: Request, res: Response) => {
   try {
-    // If request has access token, we can clear refresh token in database
-    const token = req.headers.authorization?.split(" ")[1];
-    if (token) {
-      try {
-        const decoded = authService.verifyAccessToken(token);
-        await authService.logout(decoded.userId);
-      } catch (err) {
-        // Access token might be expired, check refresh token
-        const refreshToken = req.cookies.refreshToken;
-        if (refreshToken) {
-          try {
-            const decoded = authService.verifyRefreshToken(refreshToken);
-            await authService.logout(decoded.userId);
-          } catch (rErr) {
-            // Ignore if both are invalid
-          }
-        }
-      }
-    } else {
-      // Just try to clear database record if refresh token cookie exists
-      const refreshToken = req.cookies.refreshToken;
-      if (refreshToken) {
-        try {
-          const decoded = authService.verifyRefreshToken(refreshToken);
-          await authService.logout(decoded.userId);
-        } catch (err) {}
-      }
-    }
-
-    // Always clear the cookie on logout
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: false,

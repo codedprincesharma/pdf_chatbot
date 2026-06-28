@@ -5,7 +5,7 @@ export interface AuthenticatedRequest extends Request {
   user?: authService.TokenPayload;
 }
 
-export const authMiddleware = (
+export const authMiddleware = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
@@ -26,7 +26,7 @@ export const authMiddleware = (
         message: "Access token required in Bearer format",
       });
     }
-    const decoded = authService.verifyAccessToken(token);
+    const decoded = await authService.verifyAccessToken(token);
 
     req.user = decoded;
     next();
