@@ -1,30 +1,24 @@
 import prisma from "../database/db";
 
-export interface TokenPayload {
+export interface SessionUser {
   userId: string;
   email: string;
+  name: string | null;
 }
 
-export const verifyAccessToken = async (token: string): Promise<TokenPayload> => {
+export const verifySession = async (userId: string): Promise<SessionUser> => {
   const user = await prisma.user.findUnique({
-    where: { id: token },
+    where: { id: userId },
   });
 
   if (!user) {
-    throw new Error("User not found");
+    throw new Error("Session invalid or user not found");
   }
 
   return {
     userId: user.id,
     email: user.email,
-  };
-};
-
-export const verifyRefreshToken = (token: string): TokenPayload => {
-  // Since we removed JWT, a refreshToken is just the userId as well
-  return {
-    userId: token,
-    email: "",
+    name: user.name,
   };
 };
 
@@ -49,13 +43,9 @@ export const signup = async (email: string, name?: string) => {
   });
 
   return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    },
-    accessToken: user.id,
-    refreshToken: user.id,
+    id: user.id,
+    email: user.email,
+    name: user.name,
   };
 };
 
@@ -85,31 +75,8 @@ export const login = async (email: string, name?: string) => {
   }
 
   return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    },
-    accessToken: user.id,
-    refreshToken: user.id,
+    id: user.id,
+    email: user.email,
+    name: user.name,
   };
-};
-
-export const refresh = async (token: string) => {
-  const user = await prisma.user.findUnique({
-    where: { id: token },
-  });
-
-  if (!user) {
-    throw new Error("Invalid refresh token");
-  }
-
-  return {
-    accessToken: user.id,
-    refreshToken: user.id,
-  };
-};
-
-export const logout = async (userId: string) => {
-  // No-op since we don't store session tokens in DB anymore
 };

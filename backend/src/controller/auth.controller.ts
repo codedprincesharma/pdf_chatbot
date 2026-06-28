@@ -6,8 +6,8 @@ export const signup = async (req: Request, res: Response) => {
     const { email, name } = req.body;
     const result = await authService.signup(email, name);
     
-    // Set user ID as refresh token in httpOnly cookie
-    res.cookie("refreshToken", result.refreshToken, {
+    // Set user ID in httpOnly cookie
+    res.cookie("userId", result.id, {
       httpOnly: true,
       secure: false, // Set to true if running on HTTPS
       sameSite: "lax",
@@ -17,7 +17,9 @@ export const signup = async (req: Request, res: Response) => {
     res.status(201).json({
       success: true,
       message: "User registered successfully",
-      data: result,
+      data: {
+        user: result,
+      },
     });
   } catch (error: any) {
     console.error("Signup error:", error);
@@ -33,8 +35,8 @@ export const login = async (req: Request, res: Response) => {
     const { email, name } = req.body;
     const result = await authService.login(email, name);
 
-    // Set user ID as refresh token in httpOnly cookie
-    res.cookie("refreshToken", result.refreshToken, {
+    // Set user ID in httpOnly cookie
+    res.cookie("userId", result.id, {
       httpOnly: true,
       secure: false, // Set to true if running on HTTPS
       sameSite: "lax",
@@ -45,8 +47,7 @@ export const login = async (req: Request, res: Response) => {
       success: true,
       message: "Logged in successfully",
       data: {
-        user: result.user,
-        accessToken: result.accessToken,
+        user: result,
       },
     });
   } catch (error: any) {
@@ -58,33 +59,30 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const refresh = async (req: Request, res: Response) => {
+export const getMe = async (req: Request, res: Response) => {
   try {
-    const token = req.cookies.refreshToken;
-    if (!token) {
+    const userId = req.cookies.userId;
+    if (!userId) {
       return res.status(401).json({
         success: false,
         message: "No session active",
       });
     }
 
-    const result = await authService.refresh(token);
-
-    res.cookie("refreshToken", result.refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    const user = await authService.verifySession(userId);
 
     res.status(200).json({
       success: true,
       data: {
-        accessToken: result.accessToken,
+        user: {
+          id: user.userId,
+          email: user.email,
+          name: user.name,
+        },
       },
     });
   } catch (error: any) {
-    console.error("Token refresh error:", error);
+    console.error("GetMe error:", error);
     res.status(401).json({
       success: false,
       message: error.message || "Session expired",
@@ -94,7 +92,7 @@ export const refresh = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
   try {
-    res.clearCookie("refreshToken", {
+    res.clearCookie("userId", {
       httpOnly: true,
       secure: false,
       sameSite: "lax",

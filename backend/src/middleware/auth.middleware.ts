@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import * as authService from "../service/auth.service";
 
 export interface AuthenticatedRequest extends Request {
-  user?: authService.TokenPayload;
+  user?: authService.SessionUser;
 }
 
 export const authMiddleware = async (
@@ -11,22 +11,15 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const userId = req.cookies.userId;
+    if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Access token required",
+        message: "Session cookie required",
       });
     }
 
-    const token = authHeader.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Access token required in Bearer format",
-      });
-    }
-    const decoded = await authService.verifyAccessToken(token);
+    const decoded = await authService.verifySession(userId);
 
     req.user = decoded;
     next();
@@ -34,7 +27,7 @@ export const authMiddleware = async (
     console.error("Auth middleware error:", error);
     return res.status(401).json({
       success: false,
-      message: error.name === "TokenExpiredError" ? "Token expired" : "Invalid access token",
+      message: "Invalid session",
     });
   }
 };

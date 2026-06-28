@@ -2,7 +2,6 @@
 
 import React, { useRef, useState, DragEvent, ChangeEvent } from 'react';
 import { UploadCloud } from 'lucide-react';
-import { getAccessToken, refreshToken } from '@/lib/api';
 
 interface DropZoneProps {
   onUploadSuccess: (pdfId: string) => void;
@@ -76,15 +75,9 @@ export default function DropZone({
 
     xhr.addEventListener('load', async () => {
       if (xhr.status === 401) {
-        console.log('Access token expired during upload, attempting refresh...');
-        const refreshed = await refreshToken();
-        if (refreshed) {
-          handleFileUpload(file);
-        } else {
-          onSessionExpired();
-          showToast('Session Expired', 'Please log in again to upload files', 'error');
-          setUploading(false);
-        }
+        onSessionExpired();
+        showToast('Session Expired', 'Please log in again to upload files', 'error');
+        setUploading(false);
         return;
       }
 
@@ -117,10 +110,6 @@ export default function DropZone({
     });
 
     xhr.open('POST', '/api/pdf/upload');
-    const token = getAccessToken();
-    if (token) {
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
     xhr.withCredentials = true;
     xhr.send(formData);
   };

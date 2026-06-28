@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { setAccessToken, getAccessToken, refreshToken as refreshTokenApi } from '@/lib/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -45,14 +44,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const checkAuth = useCallback(async () => {
-    const refreshed = await refreshTokenApi();
-    if (refreshed) {
-      const email =
-        (typeof window !== 'undefined' && localStorage.getItem('userEmail')) || 'User';
-      const name =
-        (typeof window !== 'undefined' && localStorage.getItem('userName')) || 'User';
-      onLoginSuccess(email, name);
-    } else {
+    try {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include',
+      });
+      const result = await response.json();
+      if (result.success && result.data?.user) {
+        onLoginSuccess(result.data.user.email, result.data.user.name || 'User');
+      } else {
+        setShowAuthModal(true);
+      }
+    } catch (error) {
+      console.error('Check auth error:', error);
       setShowAuthModal(true);
     }
   }, [onLoginSuccess]);
@@ -67,8 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const result = await response.json();
 
-      if (result.success) {
-        setAccessToken(result.data.accessToken);
+      if (result.success && result.data?.user) {
         onLoginSuccess(result.data.user.email, result.data.user.name || 'User');
       } else {
         throw new Error(result.message || 'Login failed');
@@ -93,16 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      const token = getAccessToken();
       await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: 'include',
       });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      setAccessToken(null);
       setIsAuthenticated(false);
       setUserEmail(null);
       setUserName(null);
